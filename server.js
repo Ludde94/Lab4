@@ -2,6 +2,8 @@ const express = require("express")
 const app = express()
 const jwt = require('jsonwebtoken')
 require('dotenv').config()
+const db = require('./database.js')
+const bcrypt = require('bcrypt');
 
 app.set('view-engine', 'ejs')
 app.use(express.urlencoded({extended: false}))
@@ -40,6 +42,15 @@ app.get('/granted', authenticateToken, (req, res) => {
     res.render("start.ejs")
 })
 
+async function Users(username, name, role, password) {
+    let encryptedPassword = await bcrypt.hash(password, 10);
+    await db.addUser(username, name, role, encryptedPassword);
+}
+
+Users('id1','user1', 'STUDENT1', 'password');
+Users('id2','user2', 'STUDENT2', 'password2');
+Users('id3', 'user3', 'TEACHER', 'password3');
+Users('admin', 'admin', 'ADMIN', 'admin');
 
 app.listen(8000, () => {
 console.log("Server is up on port 8000")

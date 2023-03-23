@@ -14,6 +14,18 @@ function initDb() {
   })
 }
 
+function getUser(username) {
+  return new Promise((resolve, reject) => {
+    db.get("SELECT * FROM users where username = ?",[username], (err, res) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+}
+
 function nameExists(usernameToSearchFor) {
   let sql = "SELECT username FROM users"
   return new Promise((myResolve, myReject) => {
@@ -78,4 +90,4 @@ function getAllUsers() {
 
 
 
-module.exports = {addUser, getAllUsers}
+module.exports = {addUser, getAllUsers,getPasswordForUser,getUser}

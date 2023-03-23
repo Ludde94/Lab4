@@ -20,12 +20,20 @@ app.get('/identify', (req, res) => {
     res.render('identify.ejs')
 })
 
-app.post('/identify', (req, res) => {
-    const username = req.body.password
-    const token = jwt.sign(username, process.env.ACCESS_TOKEN_SECRET)
-    currentKey = token
-    currentPassword = username
-    res.redirect("/granted")
+app.post('/identify', async (req, res) => {
+    if (req.body.userId && req.body.password) {
+        // Gets the encrypted password from the db
+        var correctPassword = await db.getPasswordForUser(req.body.userId)
+        // Compares the encrypted passwords
+        var passwordMatches = await bcrypt.compare(req.body.password, correctPassword)
+        if (passwordMatches) {
+            const username = req.body.password
+            const token = jwt.sign(username, process.env.ACCESS_TOKEN_SECRET)
+            currentKey = token
+            currentPassword = username
+            res.redirect("/granted")
+        }
+    }
 })
 
 function authenticateToken(req, res, next) {
@@ -41,6 +49,11 @@ function authenticateToken(req, res, next) {
 app.get('/granted', authenticateToken, (req, res) => {
     res.render("start.ejs")
 })
+
+app.get('/admin',async (req, res) => {
+    users = await db.getAllUsers();
+    res.render('admin.ejs', users)
+  })
 
 async function Users(username, name, role, password) {
     let encryptedPassword = await bcrypt.hash(password, 10);

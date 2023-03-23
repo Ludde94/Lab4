@@ -33,6 +33,21 @@ function nameExists(usernameToSearchFor) {
   });
 }
 
+function getPasswordForUser(usernameToSearchFor) {
+  return new Promise((resolve, reject) => {
+      const sql = "SELECT password FROM users where username = ?";
+      db.get(sql, [usernameToSearchFor], (err, row) => {
+          if (err) {
+              return reject(err);
+          }
+          if (!row) {
+              return reject(new Error("User was not found, please try again!"));
+          }
+          resolve(row.password);
+      });
+  });
+}
+
 async function addUser(username, name, role, password) {
   if (await nameExists(username)) {
     console.log("Username is already taken, please try another one")
@@ -49,5 +64,18 @@ else {
   }
 }
 
+function getAllUsers() {
+  return new Promise((resolve, reject) => {
+    db.all("SELECT * FROM users", (err, res) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+}
 
-module.exports = {addUser}
+
+
+module.exports = {addUser, getAllUsers}

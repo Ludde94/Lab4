@@ -12,7 +12,6 @@ app.use(express.json())
 app.use(cookieParser())
 
 var currentKey =""
-var currentPassword =""
 
 app.get('/', (req,res) => {
     res.redirect("/identify")
@@ -23,24 +22,30 @@ app.get('/identify', (req, res) => {
 })
 
 app.post('/identify', async (req, res) => {
-    let dbUser = await db.getUser(req.body.userId)
-    if (req.body.userId && req.body.password) {
-        // Gets the encrypted password from the db
-        var correctPassword = await db.getPasswordForUser(req.body.userId)
-        // Compares the encrypted passwords
-        var passwordMatches = await bcrypt.compare(req.body.password, correctPassword)
-        if (passwordMatches) {
-            let userObj = { username: req.body.userId, role: dbUser.role };
-            const token = jwt.sign(userObj, process.env.ACCESS_TOKEN_SECRET)
-            currentKey = token
-            res.cookie("jwt", token, { httpOnly: true }).status(200).redirect('/granted');
-        } else {
-            res.redirect('identify.ejs')
+    try {
+        if (!req.body.userId || !req.body.password) {
+            throw new Error('Missing required fields: userId and password');
         }
-    } else {
-        res.redirect('identify.ejs')
+        let dbUser = await db.getUser(req.body.userId);
+        if (!dbUser) {
+            throw new Error('User not found');
+        }
+        // Gets the encrypted password from the db
+        var correctPassword = await db.getPasswordForUser(req.body.userId);
+        // Compares the encrypted passwords
+        var passwordMatches = await bcrypt.compare(req.body.password, correctPassword);
+        if (!passwordMatches) {
+            throw new Error('Invalid credentials');
+        }
+        let userObj = { username: req.body.userId, role: dbUser.role };
+        const token = jwt.sign(userObj, process.env.ACCESS_TOKEN_SECRET);
+        currentKey = token;
+        res.cookie("jwt", token, { httpOnly: true }).status(200).redirect('/granted');
+    } catch (error) {
+        console.error(error);
+        res.status(400).render('identify.ejs', { errorMessage: error.message });
     }
-})
+});
 
 function authenticateToken(req, res, next) {
     if(currentKey == "") {
@@ -68,20 +73,51 @@ async function Users(username, name, role, password) {
 }
 
 function authorizeRole(requiredRoles) {
-return async (req, res, next) => {
-    try {
-    const user = await getUserFromToken(req);
-
-    if (requiredRoles.includes(user.role)) {
-        next();
-    } else {
+    return async (req, res, next) => {
+      try {
+        const user = await getUserFromToken(req);
+  
+        if (requiredRoles.includes(user.role)) {
+          next();
+        } else {
+          res.sendStatus(401);
+        }
+      } catch (error) {
+        console.log(error);
         res.sendStatus(401);
-    }
+      }
+    };
+  }
+  
+  app.get('/student1', authenticateToken, authorizeRole(["STUDENT1","ADMIN","TEACHER"]), async (req, res) => {
+    try {
+        const user = await getUserFromToken(req);
+        res.render('student1.ejs', { user: user })
     } catch (error) {
-    console.log(error)
+        console.error(error)
+        res.status(500).render('fail.ejs', {error})
     }
-}
-}
+})
+
+app.get('/student2', authenticateToken, authorizeRole(["STUDENT2","ADMIN","TEACHER"]), async (req, res) => {
+    try {
+        const user = await getUserFromToken(req);
+        res.render('student2.ejs', { user: user })
+    } catch (error) {
+        console.error(error)
+        res.status(500).render('fail.ejs', {error})
+    }
+})
+
+app.get('/teacher', authenticateToken, authorizeRole(["TEACHER","ADMIN"]), async (req, res) => {
+    try {
+        const user = await getUserFromToken(req);
+        res.render('teacher.ejs')
+    } catch (error) {
+        console.error(error)
+        res.status(500).render('fail.ejs', {error})
+    }
+})
 
 async function getUserFromToken(req) {
     const token = req.cookies.jwt;
@@ -89,6 +125,7 @@ async function getUserFromToken(req) {
     const user = await db.getUser(decryptedToken.username);
     return user;
 }
+
 
 Users('id1','user1', 'STUDENT1', 'password');
 Users('id2','user2', 'STUDENT2', 'password2');
